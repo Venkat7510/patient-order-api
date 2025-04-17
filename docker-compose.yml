@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: registration_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: 'Plmoknijb1357@'
+      MYSQL_DATABASE: RegistrationDetails
+    volumes:
+      - db-data:/var/lib/mysql
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    ports:
+      - "3307:3306" # so you can inspect on host:3307 if needed
+
+  app:
+    build: .
+    container_name: registration_api
+    restart: unless-stopped
+    environment:
+      # Must point at the 'db' service, not host.docker.internal
+      DB_HOST: db
+      DB_USER: root
+      # Wrap special‐char passwords in quotes
+      DB_PASSWORD: "Plmoknijb1357@"
+      DB_NAME: RegistrationDetails
+      API_TOKEN: "82a044dae6d140b0fe3a473da4a78317b81b9889865eed5bdf36f0299442acdc"
+      PORT: 3000
+    ports:
+      - "3308:3000" # expose your Node API on host port 3308
+    depends_on:
+      - db
+
+volumes:
+  db-data:
