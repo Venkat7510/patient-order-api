@@ -28,7 +28,7 @@ services:
       API_TOKEN: "82a044dae6d140b0fe3a473da4a78317b81b9889865eed5bdf36f0299442acdc"
       PORT: 3000
     ports:
-      - "3308:3000" # expose your Node API on host port 3308
+      - "80:3000" # expose your Node API on host port 3308
     depends_on:
       - db
 
