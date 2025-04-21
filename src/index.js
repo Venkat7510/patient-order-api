@@ -36,6 +36,11 @@ const pool = mysql.createPool({
 });
 
 // POST /orders
+
+app.get('/health' , async (req,res) => {
+    res.json("Running")
+})
+
 app.post('/orders', async (req, res) => {
     const { PatientInfo, Orders } = req.body;
     if (!PatientInfo?.PatientID) {
