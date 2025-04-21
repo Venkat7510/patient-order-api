@@ -3,6 +3,18 @@
 CREATE DATABASE IF NOT EXISTS RegistrationDetails;
 USE RegistrationDetails;
 
+-- Users table
+CREATE TABLE IF NOT EXISTS users (
+  user_id         VARCHAR(50) PRIMARY KEY,
+  username        VARCHAR(100) UNIQUE NOT NULL,
+  password_hash   VARCHAR(255) NOT NULL,
+  email           VARCHAR(100) UNIQUE,
+  role            VARCHAR(50),
+  is_active       BOOLEAN DEFAULT TRUE,
+  created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 -- Patients table
 CREATE TABLE IF NOT EXISTS patients (
   patient_id        VARCHAR(50) PRIMARY KEY,
