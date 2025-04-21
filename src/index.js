@@ -23,7 +23,6 @@ const authenticatePost = (req, res, next) => {
     }
     next();
 };
-app.use(authenticatePost);
 
 // MySQL pool
 const pool = mysql.createPool({
@@ -81,6 +80,8 @@ app.post('/login', async (req, res) => {
         conn.release();
     }
 });
+
+app.use(authenticatePost);
 
 app.post('/orders', async (req, res) => {
     const { PatientInfo, Orders } = req.body;
