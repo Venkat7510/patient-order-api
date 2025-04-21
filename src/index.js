@@ -41,6 +41,47 @@ app.get('/health' , async (req,res) => {
     res.json("Running")
 })
 
+// Sign up
+app.post('/signup', async (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+
+    const conn = await pool.getConnection();
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await conn.execute('INSERT INTO users (username, password) VALUES (?, ?)', [username, hashedPassword]);
+        res.json({ message: 'User registered successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'User creation failed' });
+    } finally {
+        conn.release();
+    }
+});
+
+// Login
+app.post('/login', async (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+
+    const conn = await pool.getConnection();
+    try {
+        const [[user]] = await conn.execute('SELECT * FROM users WHERE username = ?', [username]);
+        if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
+
+        const token = jwt.sign({ userId: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        res.json({ token });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Login failed' });
+    } finally {
+        conn.release();
+    }
+});
+
 app.post('/orders', async (req, res) => {
     const { PatientInfo, Orders } = req.body;
     if (!PatientInfo?.PatientID) {
