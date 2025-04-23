@@ -1,7 +1,10 @@
-// src/index.js
-const express = require('express');
-require('dotenv').config();
-const mysql = require('mysql2/promise');
+import express from 'express';
+import dotenv from 'dotenv';
+import mysql from 'mysql2/promise';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+
+dotenv.config();
 
 const app = express();
 app.use(express.json());
@@ -14,14 +17,31 @@ function toMysqlDateTime(isoString) {
         + ` ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-const authenticatePost = (req, res, next) => {
-    if (req.method !== 'POST') return next();           // only guard POST
+const authenticatePost = async (req, res, next) => {
+    if (req.method !== 'POST') return next();
     const auth = req.headers.authorization || '';
     const [, token] = auth.split(' ');
-    if (!token || token !== process.env.API_TOKEN) {
+    if (!token) {
         return res.status(401).json({ error: 'Unauthorized' });
     }
-    next();
+
+    try {
+        const decoded = jwt.verify(token, "iusdhfiusdhuf89389bdsuihfh");
+
+        const conn = await pool.getConnection();
+        try {
+            const [[user]] = await conn.execute('SELECT token FROM users WHERE username = ?', [decoded.username]);
+            if (!user || user.token !== token) {
+                return res.status(401).json({ error: 'Invalid or expired token' });
+            }
+            next();
+        } finally {
+            conn.release();
+        }
+    } catch (err) {
+        console.error(err);
+        return res.status(401).json({ error: 'Invalid or expired token' });
+    }
 };
 
 // MySQL pool
@@ -36,7 +56,7 @@ const pool = mysql.createPool({
 
 // POST /orders
 
-app.get('/health' , async (req,res) => {
+app.get('/health', async (req, res) => {
     res.json("Running")
 })
 
@@ -48,7 +68,8 @@ app.post('/signup', async (req, res) => {
     const conn = await pool.getConnection();
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
-        await conn.execute('INSERT INTO users (username, password) VALUES (?, ?)', [username, hashedPassword]);
+        const userId = crypto.randomUUID();
+        await conn.execute('INSERT INTO users (user_id, username, password_hash) VALUES (?, ?, ?)', [userId, username, hashedPassword]);
         res.json({ message: 'User registered successfully' });
     } catch (err) {
         console.error(err);
@@ -61,25 +82,41 @@ app.post('/signup', async (req, res) => {
 // Login
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+    if (!username || !password) {
+        return res.status(400).json({ error: 'Username and password required' });
+    }
 
     const conn = await pool.getConnection();
     try {
-        const [[user]] = await conn.execute('SELECT * FROM users WHERE username = ?', [username]);
-        if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+        const [[user]] = await conn.execute(
+            'SELECT * FROM users WHERE username = ?',
+            [username ?? null]
+        );
+        if (!user) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
 
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
+        const isMatch = await bcrypt.compare(password, user.password_hash);
+        if (!isMatch) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
 
-        const token = jwt.sign({ userId: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        const token = jwt.sign(
+            { userId: user.id, username: user.username },
+            'iusdhfiusdhuf89389bdsuihfh',
+            { expiresIn: '1h' }
+        );
+        await conn.execute('UPDATE users SET token = ? WHERE user_id = ?', [token, user.user_id]);
+        res.setHeader('token', token);
         res.json({ token });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ error: 'Login failed' });
+        res.status(500).json({ error: `Login failed: ${err.message}` });
     } finally {
         conn.release();
     }
 });
+
 
 app.use(authenticatePost);
 
@@ -292,5 +329,5 @@ app.get('/orders/:patientId', async (req, res) => {
 // start
 const port = process.env.PORT || 3000;
 app.listen(port, '0.0.0.0', () => {
-  console.log(`Listening on port ${port}`);
+    console.log(`Listening on port ${port}`);
 });

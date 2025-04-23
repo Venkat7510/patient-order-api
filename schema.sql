@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
   email           VARCHAR(100) UNIQUE,
   role            VARCHAR(50),
   is_active       BOOLEAN DEFAULT TRUE,
+  token           VARCHAR(255),
   created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
